@@ -332,3 +332,86 @@ multilingual comparison.
 
 The original `fertility.py` was preserved unchanged so that all
 corrections remain traceable to the original v0 implementation.
+
+## A3 — Corrected multilingual tokenizer analysis
+
+### Hypothesis
+
+The original fertility comparison may overstate cross-language tokenizer
+differences. I will compare two tokenizers on the same A1 corpus using
+multiple denominator definitions.
+
+### Experiment
+
+Tokenizers:
+- GPT-2 (`gpt2`)
+- XLM-RoBERTa (`xlm-roberta-base`)
+
+Denominators:
+- tokens per whitespace word
+- tokens per Unicode grapheme cluster
+- tokens per UTF-8 byte
+
+Corpus:
+- English
+- Hindi
+- Kannada
+- Tamil
+
+Command:
+
+```powershell
+python partA\analysis_a3.py `
+  --corpus eng=partA/corpus/eng_Latn.txt `
+  --corpus hin=partA/corpus/hin_Deva.txt `
+  --corpus kan=partA/corpus/kan_Knda.txt `
+  --corpus tam=partA/corpus/tam_Taml.txt `
+  --tokenizer gpt2 `
+  --tokenizer xlm-roberta-base
+
+  # A4 — Tokenizer Audit Recommendation Memo
+
+## Corrected headline
+
+The original GPT-2 benchmark substantially overstates the apparent
+Indic-language tokenizer penalty when compared with a multilingual
+tokenizer. On the A1 corpus, GPT-2 produces 6.12x, 17.85x and 19.60x
+the English tokens/word for Hindi, Kannada and Tamil respectively.
+With XLM-RoBERTa, the corresponding ratios fall to 1.05x, 1.81x and
+1.73x.
+
+The choice of tokenizer therefore materially changes the estimated
+multilingual serving cost.
+
+## Routing recommendation
+
+Do not route or capacity-plan multilingual traffic using the original
+GPT-2 fertility ratios unless GPT-2 is actually the production
+tokenizer.
+
+For a multilingual deployment, use the fertility of the tokenizer
+actually deployed. Tokens per whitespace word should be the primary
+operational cost proxy because inference workload and context usage are
+determined by tokenizer tokens. Tokens per grapheme should be retained
+as a cross-script diagnostic to prevent misleading comparisons caused
+by differences in orthographic representation.
+
+Based on this audit, an Indic/multilingual tokenizer such as XLM-R shows
+far more balanced tokenization across the tested languages than GPT-2.
+
+## Biggest caveat
+
+The A1 corpus contains only English, Hindi, Kannada and Tamil and its
+domain and sample size limit generalization. The results do not establish
+tokenization behavior for Telugu, Malayalam, Bengali, Marathi or other
+languages, nor do they establish production traffic distributions.
+Routing decisions should therefore be validated against representative
+production-like traffic before deployment.
+
+## Production metric
+
+Monitor **input tokens per request by language and tokenizer** in
+production. This directly connects the audit to inference cost and
+capacity. Track its distribution (especially p50/p95) rather than only
+the mean, and alert if observed token counts materially exceed the
+offline estimates.
