@@ -128,4 +128,207 @@ All 4 corpus files written to partA/corpus/, 1012 lines each, verified aligned o
   tam_Taml          1,012     16,775    154,131        422,646
   kan_Knda          1,012     16,100    138,027        376,352
 
+## A2 —## A2 — Baseline: Original v0 implementation
 
+### Method
+
+Ran the original `fertility.py` without modifications on the four
+languages in `partA/corpus/` using the GPT-2 tokenizer.
+
+### Results
+
+| Language | Fertility (tokens/word) | Tokens/character |
+|---|---:|---:|
+| English | 1.29 | 0.214 |
+| Hindi | 7.87 | 1.529 |
+| Kannada | 22.57 | 2.660 |
+| Tamil | 25.13 | 2.724 |
+
+Using English as the baseline, the reported fertility ratios were:
+
+- Hindi: 6.11x
+- Kannada: 17.53x
+- Tamil: 19.52x
+
+These values are used as the reference for the subsequent A2
+experiments.
+
+
+ Experiment 1: Effect of lowercasing
+
+### Hypothesis
+The `line.lower()` operation may alter the fertility measurement,
+especially for languages with case distinctions.
+
+### Method
+Ran the original v0 implementation on the four-language corpus,
+then repeated the experiment with only `line.lower()` disabled.
+
+Tokenizer: GPT-2
+
+### Results
+
+| Language | With lower() | Without lower() |
+|---|---:|---:|
+| English | 1.29 | 1.24 |
+| Hindi | 7.87 | 7.86 |
+| Kannada | 22.57 | 22.57 |
+| Tamil | 25.13 | 25.13 |
+
+### Observation
+Lowercasing changed English fertility from 1.29 to 1.24.
+Hindi changed only slightly, while Kannada and Tamil were unchanged.
+
+### Conclusion
+`lower()` has a measurable effect on the English result, but it is
+not by itself evidence of an implementation bug. It is a preprocessing
+choice whose effect should be considered when interpreting the benchmark.
+
+Experiment 2: Word splitting
+
+### Hypothesis
+`line.split(" ")` may incorrectly count words when the corpus contains
+multiple or non-standard whitespace characters.
+
+### Method
+Compared the original implementation using:
+
+    words = line.split(" ")
+
+against a version using:
+
+    words = line.split()
+
+Only this line was changed. The same four-language corpus and GPT-2
+tokenizer were used.
+
+### Results
+
+| Language | Original `split(" ")` | `split()` |
+|---|---:|---:|
+| English | 1.29 | 1.29 |
+| Hindi | 7.87 | 7.87 |
+| Kannada | 22.57 | 23.02 |
+| Tamil | 25.13 | 25.25 |
+
+Tokens/character remained unchanged because only word counting was
+modified.
+
+### Conclusion
+The original literal-space split produces different fertility values
+for Kannada and Tamil on the corpus. Therefore, the word-counting
+implementation is sensitive to whitespace and is a confirmed issue.
+Using Python's general `split()` avoids empty fields from repeated
+whitespace and handles other whitespace separators.
+
+Experiment 3: Character counting
+
+### Hypothesis
+`len(line)` counts Unicode code points rather than user-perceived
+characters. This may affect the tokens/character metric for Indic scripts.
+
+### Method
+Compared the original:
+
+    chars = len(line)
+
+with a grapheme-cluster count using the `regex` package:
+
+    chars = len(regex.findall(r"\X", line))
+
+Only the character-counting operation was changed. The same corpus,
+GPT-2 tokenizer, lowercasing, and word-counting logic were retained.
+
+### Results
+
+| Language | Code-point count | Grapheme-cluster count |
+|---|---:|---:|
+| English | 0.214 | 0.214 |
+| Hindi | 1.529 | 2.341 |
+| Kannada | 2.660 | 4.066 |
+| Tamil | 2.724 | 4.215 |
+
+### Observation
+The fertility values were unchanged because word counting was not
+modified. However, tokens/character changed substantially for the
+Indic languages.
+
+### Conclusion
+The v0 implementation defines "character" as a Unicode code point.
+This produces substantially different tokens/character values from
+grapheme-cluster counting for Hindi, Kannada, and Tamil. The benchmark
+therefore needs an explicit definition of the character unit being
+measured.
+
+ Experiment 4: Per-line averaging vs corpus-level aggregation
+
+### Hypothesis
+The v0 implementation averages fertility ratios calculated separately
+for each line. This may produce a different result from calculating
+fertility from the total number of tokens and total number of words in
+the corpus.
+
+### Method
+The original implementation was compared with a version that accumulates
+total tokens, total words, and total characters across all lines and
+then calculates the ratios from those totals.
+
+Only the aggregation method was changed. The same four-language corpus,
+GPT-2 tokenizer, lowercasing, and word splitting were retained.
+
+### Results
+
+| Language | Per-line average | Corpus-level ratio |
+|---|---:|---:|
+| English | 1.29 | 1.28 |
+| Hindi | 7.87 | 7.82 |
+| Kannada | 22.57 | 22.30 |
+| Tamil | 25.13 | 24.90 |
+
+### Conclusion
+The two aggregation methods produce different results on the corpus.
+The v0 implementation therefore gives each line equal weight rather
+than weighting lines according to their number of words. This is a
+statistical/aggregation issue that can affect the reported fertility.
+
+Experiment 5: Random seed
+
+### Hypothesis
+
+The `random.seed(1337)` statement may be unnecessary because the
+benchmark does not appear to use the `random` module elsewhere.
+
+### Method
+
+Compared the original implementation containing:
+
+    random.seed(1337)
+
+with a version where only this statement was disabled.
+
+The same four-language corpus and GPT-2 tokenizer were used.
+
+### Results
+
+| Language | Original | Without random seed |
+|---|---:|---:|
+| English | 1.29 | 1.29 |
+| Hindi | 7.87 | 7.87 |
+| Kannada | 22.57 | 22.57 |
+| Tamil | 25.13 | 25.13 |
+
+The cross-language fertility ratios were also identical.
+
+### Conclusion
+
+Removing the random seed produced exactly the same results. The
+`random` module is not otherwise used by the current benchmark, so
+`random.seed(1337)` has no effect on the reported measurements. It is
+therefore redundant/dead code rather than a functional bug.
+
+
+this
+multilingual comparison.
+
+The original `fertility.py` was preserved unchanged so that all
+corrections remain traceable to the original v0 implementation.
