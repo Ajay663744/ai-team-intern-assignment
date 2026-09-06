@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment/secrets
+.env
+
+# FLORES downloaded source data
+flores-main/
+flores200_dataset/
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
